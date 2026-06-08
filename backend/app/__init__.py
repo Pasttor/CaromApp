@@ -1,0 +1,2 @@
+"""Billiard VAR Scoreboard backend."""
+
