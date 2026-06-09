@@ -1,4 +1,4 @@
-import type { AppState, SettingsState } from '../types'
+import type { AppState, SettingsState, VideoDevicesResponse } from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 
@@ -58,6 +58,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+  videoDevices: () => request<VideoDevicesResponse>('/api/video/devices'),
   startVideo: () => request<AppState>('/api/video/start', { method: 'POST' }),
   stopVideo: () => request<AppState>('/api/video/stop', { method: 'POST' }),
   live: () => request<AppState>('/api/replay/live'),

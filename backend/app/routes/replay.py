@@ -13,6 +13,11 @@ def video_status() -> dict:
     return get_state()
 
 
+@router.get("/api/video/devices")
+def video_devices() -> dict:
+    return video_service.list_devices()
+
+
 @router.post("/api/video/start")
 def video_start() -> dict:
     return get_state(video_service.start())
@@ -35,4 +40,3 @@ def replay_last(window: str) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return get_state(replay)
-

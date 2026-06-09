@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Save, X } from 'lucide-react'
-import type { SettingsState } from '../types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { RefreshCw, Save, X } from 'lucide-react'
+import { api } from '../lib/api'
+import type { SettingsState, VideoDevice } from '../types'
 
 interface SettingsModalProps {
   open: boolean
@@ -11,10 +12,43 @@ interface SettingsModalProps {
 
 export function SettingsModal({ open, settings, onClose, onSave }: SettingsModalProps) {
   const [draft, setDraft] = useState(settings)
+  const [devices, setDevices] = useState<VideoDevice[]>([])
+  const [deviceMessage, setDeviceMessage] = useState('')
+  const [loadingDevices, setLoadingDevices] = useState(false)
+  const wasOpen = useRef(false)
+
+  const loadDevices = useCallback(async () => {
+    setLoadingDevices(true)
+    try {
+      const response = await api.videoDevices()
+      setDevices(response.devices)
+      setDeviceMessage(response.message)
+      if (response.devices.length > 0) {
+        setDraft((current) => {
+          const currentDeviceExists = response.devices.some(
+            (device) => device.id === current.camera_device,
+          )
+          if (current.camera_device !== 'default' && currentDeviceExists) return current
+          return { ...current, camera_device: response.devices[0].id }
+        })
+      }
+    } catch {
+      setDeviceMessage('No se pudieron consultar las camaras.')
+    } finally {
+      setLoadingDevices(false)
+    }
+  }, [])
 
   useEffect(() => {
-    setDraft(settings)
-  }, [settings])
+    if (open && !wasOpen.current) {
+      setDraft(settings)
+    }
+    wasOpen.current = open
+  }, [open, settings])
+
+  useEffect(() => {
+    if (open) void loadDevices()
+  }, [loadDevices, open])
 
   if (!open) return null
 
@@ -63,13 +97,46 @@ export function SettingsModal({ open, settings, onClose, onSave }: SettingsModal
           </select>
         </label>
 
-        <label>
-          Dispositivo o URL
-          <input
-            value={draft.camera_device}
-            onChange={(event) => update('camera_device', event.currentTarget.value)}
-          />
-        </label>
+        {draft.camera_source_type === 'usb' ? (
+          <div className="device-field">
+            <label>
+              Camara
+              <select
+                value={draft.camera_device}
+                onChange={(event) => update('camera_device', event.currentTarget.value)}
+              >
+                {devices.length === 0 && (
+                  <option value={draft.camera_device}>
+                    {loadingDevices ? 'Buscando camaras...' : draft.camera_device || 'Sin camaras'}
+                  </option>
+                )}
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              aria-label="Actualizar camaras"
+              title="Actualizar camaras"
+              onClick={() => void loadDevices()}
+              disabled={loadingDevices}
+            >
+              <RefreshCw aria-hidden="true" size={19} />
+            </button>
+            <span>{deviceMessage}</span>
+          </div>
+        ) : draft.camera_source_type === 'rtsp' ? (
+          <label>
+            URL RTSP
+            <input
+              value={draft.camera_device}
+              onChange={(event) => update('camera_device', event.currentTarget.value)}
+            />
+          </label>
+        ) : null}
 
         <label className="checkbox-row">
           <input
@@ -84,7 +151,7 @@ export function SettingsModal({ open, settings, onClose, onSave }: SettingsModal
 
         <div className="settings-grid">
           <label>
-            Buffer min
+            Buffer (minutos)
             <input
               type="number"
               min="1"
@@ -93,7 +160,7 @@ export function SettingsModal({ open, settings, onClose, onSave }: SettingsModal
             />
           </label>
           <label>
-            Segmento seg
+            Segmento (segundos)
             <input
               type="number"
               min="1"

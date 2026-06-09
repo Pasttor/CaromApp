@@ -137,6 +137,7 @@ function App() {
     const nextState = await runAction(() => api.saveSettings(settings))
     if (nextState) {
       setSettingsOpen(false)
+      await runAction(api.stopVideo, true)
       await runAction(api.startVideo, true)
     }
   }

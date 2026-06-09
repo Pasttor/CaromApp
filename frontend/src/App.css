@@ -370,6 +370,7 @@ button:disabled {
 
 .modal-panel {
   width: min(520px, 100%);
+  max-width: 100%;
   border-radius: 12px;
   background: #f4f4ef;
   color: #080908;
@@ -399,11 +400,15 @@ button:disabled {
 }
 
 .settings-panel {
+  width: min(620px, 100%);
+  max-height: calc(100svh - 48px);
+  overflow-y: auto;
   display: grid;
   gap: 14px;
 }
 
 .settings-panel label {
+  min-width: 0;
   display: grid;
   gap: 6px;
   font-weight: 800;
@@ -411,6 +416,8 @@ button:disabled {
 
 .settings-panel input,
 .settings-panel select {
+  width: 100%;
+  min-width: 0;
   min-height: 46px;
   border: 1px solid #c8cac4;
   border-radius: 8px;
@@ -432,8 +439,26 @@ button:disabled {
 
 .settings-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.device-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px;
+  gap: 8px;
+  align-items: end;
+}
+
+.device-field button {
+  min-height: 46px;
+  padding: 0;
+}
+
+.device-field > span {
+  grid-column: 1 / -1;
+  color: #626762;
+  font-size: 0.84rem;
 }
 
 .summary-grid {
@@ -519,6 +544,18 @@ button:disabled {
 @media (max-width: 560px) {
   .scoreboard-app {
     padding: 12px;
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal-panel {
+    padding: 18px;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
   }
 
   .top-status {

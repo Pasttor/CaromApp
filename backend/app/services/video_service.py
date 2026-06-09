@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -11,7 +12,7 @@ from uuid import uuid4
 
 from .. import config
 from ..database import db
-from .settings_service import get_settings, setting_bool, setting_int
+from .settings_service import get_settings, setting_bool, setting_int, update_settings
 
 
 class VideoService:
@@ -42,6 +43,53 @@ class VideoService:
     def is_running(self) -> bool:
         return self.process is not None and self.process.poll() is None
 
+    def list_devices(self) -> dict[str, Any]:
+        ffmpeg = self.ffmpeg_path()
+        if not ffmpeg:
+            return {
+                "devices": [],
+                "message": "FFmpeg no esta disponible para detectar camaras.",
+            }
+
+        if os.name == "nt":
+            try:
+                result = subprocess.run(
+                    [
+                        ffmpeg,
+                        "-hide_banner",
+                        "-list_devices",
+                        "true",
+                        "-f",
+                        "dshow",
+                        "-i",
+                        "dummy",
+                    ],
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
+                )
+                output = self._decode_process_output(result.stderr)
+                devices = self._parse_windows_video_devices(output)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                return {
+                    "devices": [],
+                    "message": f"No se pudieron detectar camaras: {exc}",
+                }
+        else:
+            devices = [
+                {"id": str(path), "label": path.name}
+                for path in sorted(Path("/dev").glob("video*"))
+            ]
+
+        return {
+            "devices": devices,
+            "message": (
+                f"{len(devices)} camara(s) detectada(s)."
+                if devices
+                else "No se detectaron camaras USB."
+            ),
+        }
+
     def status(self) -> dict[str, Any]:
         self.sync_segments()
         ffmpeg = self.ffmpeg_path()
@@ -54,9 +102,12 @@ class VideoService:
         elif not ffmpeg:
             status = "error"
             message = "FFmpeg no esta disponible. Configura FFMPEG_PATH o instala imageio-ffmpeg."
+        elif self.last_error:
+            status = "error"
+            message = self.last_error
         elif self.process and self.process.poll() is not None:
             status = "error"
-            message = self.last_error or "El proceso de video se detuvo."
+            message = self._read_process_error()
         else:
             status = "idle"
             message = "Video listo para iniciar."
@@ -82,9 +133,23 @@ class VideoService:
 
         config.ensure_runtime_dirs()
         self.last_error = ""
+        self._clear_live_files()
         self._clear_replay_files()
 
         settings = get_settings()
+        if (
+            settings.get("camera_source_type") == "usb"
+            and settings.get("camera_device") == "default"
+            and not setting_bool(settings, "demo_mode_enabled")
+        ):
+            detected = self.list_devices()["devices"]
+            if not detected:
+                self.last_error = "No se detecto ninguna camara USB disponible."
+                return self.status()
+            selected_device = detected[0]["id"]
+            settings["camera_device"] = selected_device
+            update_settings({"camera_device": selected_device})
+
         args = self._build_ffmpeg_args(ffmpeg, settings)
         log_path = config.LOG_DIR / "ffmpeg.log"
         self.log_handle = log_path.open("ab")
@@ -291,11 +356,59 @@ class VideoService:
             except OSError:
                 pass
 
+    def _clear_live_files(self) -> None:
+        config.ensure_runtime_dirs()
+        for pattern in ("live.m3u8", "segment_*.ts"):
+            for media_file in config.LIVE_DIR.glob(pattern):
+                try:
+                    media_file.unlink()
+                except OSError:
+                    pass
+        with db() as connection:
+            connection.execute("DELETE FROM video_segments")
+
     def _close_log(self) -> None:
         if self.log_handle:
             self.log_handle.close()
             self.log_handle = None
 
+    def _read_process_error(self) -> str:
+        log_path = config.LOG_DIR / "ffmpeg.log"
+        if not log_path.exists():
+            return "El proceso de video se detuvo."
+
+        try:
+            with log_path.open("rb") as log_file:
+                log_file.seek(0, os.SEEK_END)
+                size = log_file.tell()
+                log_file.seek(max(0, size - 8192))
+                output = self._decode_process_output(log_file.read())
+        except OSError:
+            return "El proceso de video se detuvo."
+
+        if "Could not find video device" in output:
+            return "No se encontro la camara seleccionada. Actualiza la lista de camaras."
+        if "No space left on device" in output:
+            return "No hay espacio suficiente en disco para grabar video."
+        if "Could not run graph" in output or "device is already in use" in output.lower():
+            return "La camara esta siendo usada por otra aplicacion."
+        if "Error opening input" in output:
+            return "No se pudo abrir la camara. Revisa permisos o cierra otras aplicaciones."
+        return "El proceso de video se detuvo. Revisa data/logs/ffmpeg.log."
+
+    @staticmethod
+    def _decode_process_output(output: bytes) -> str:
+        for encoding in ("utf-8", "cp1252"):
+            try:
+                return output.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return output.decode("utf-8", errors="replace")
+
+    @staticmethod
+    def _parse_windows_video_devices(output: str) -> list[dict[str, str]]:
+        names = re.findall(r'"([^"]+)"\s+\(video\)', output)
+        return [{"id": name, "label": name} for name in dict.fromkeys(names)]
+
 
 video_service = VideoService()
-

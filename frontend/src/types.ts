@@ -50,6 +50,16 @@ export interface VideoState {
   requested_seconds?: number
 }
 
+export interface VideoDevice {
+  id: string
+  label: string
+}
+
+export interface VideoDevicesResponse {
+  devices: VideoDevice[]
+  message: string
+}
+
 export interface AppState {
   match: MatchState | null
   latest_match: MatchState | null
@@ -58,4 +68,3 @@ export interface AppState {
   video: VideoState
   summary?: MatchState | null
 }
-

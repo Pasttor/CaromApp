@@ -7,7 +7,7 @@ import pytest
 from app import config
 from app.database import db, initialize_database
 from app.services import match_service
-from app.services.settings_service import update_settings
+from app.services.settings_service import get_settings, update_settings
 from app.services.video_service import video_service
 
 
@@ -75,6 +75,56 @@ def test_timer_stays_frozen_while_paused(runtime):
     assert serialized is not None
     assert serialized["status"] == "paused"
     assert serialized["duration_seconds"] == frozen_duration
+
+
+def test_windows_camera_device_output_is_parsed(runtime):
+    output = """
+    [dshow @ 000001] "Integrated Webcam" (video)
+    [dshow @ 000001] "Integrated Webcam" (video)
+    [dshow @ 000001] "Microphone" (audio)
+    """
+
+    assert video_service._parse_windows_video_devices(output) == [
+        {"id": "Integrated Webcam", "label": "Integrated Webcam"}
+    ]
+
+
+def test_video_start_resolves_default_usb_camera(runtime, monkeypatch):
+    update_settings(
+        {
+            "camera_source_type": "usb",
+            "camera_device": "default",
+            "demo_mode_enabled": "false",
+        }
+    )
+    monkeypatch.setattr(video_service, "ffmpeg_path", lambda: "ffmpeg")
+    monkeypatch.setattr(
+        video_service,
+        "list_devices",
+        lambda: {
+            "devices": [{"id": "Integrated Webcam", "label": "Integrated Webcam"}],
+            "message": "1 camara(s) detectada(s).",
+        },
+    )
+
+    captured_args = []
+
+    class FakeProcess:
+        def poll(self):
+            return None
+
+    def fake_popen(args, **kwargs):
+        captured_args.extend(args)
+        return FakeProcess()
+
+    monkeypatch.setattr("app.services.video_service.subprocess.Popen", fake_popen)
+    result = video_service.start()
+
+    assert result["running"] is True
+    assert "video=Integrated Webcam" in captured_args
+    assert get_settings()["camera_device"] == "Integrated Webcam"
+    video_service.process = None
+    video_service._close_log()
 
 
 def test_replay_playlist_uses_available_segments(runtime):
