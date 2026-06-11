@@ -33,6 +33,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   current: () => request<AppState>('/api/match/current'),
   startMatch: () => request<AppState>('/api/match/start', { method: 'POST' }),
+  newSet: () => request<AppState>('/api/match/new-set', { method: 'POST' }),
   pauseMatch: () => request<AppState>('/api/match/pause', { method: 'POST' }),
   resumeMatch: () => request<AppState>('/api/match/resume', { method: 'POST' }),
   endMatch: () => request<AppState>('/api/match/end', { method: 'POST' }),

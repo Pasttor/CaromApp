@@ -1,5 +1,4 @@
 import type { KeyboardEvent } from 'react'
-import { CircleDot } from 'lucide-react'
 
 type PlayerNumber = 1 | 2
 
@@ -12,10 +11,9 @@ interface PlayerPanelProps {
   disabled: boolean
   onScore: (playerNumber: PlayerNumber, delta: number) => void
   onRename: (playerNumber: PlayerNumber, name: string) => void
-  onTurn: (playerNumber: PlayerNumber) => void
 }
 
-const quickActions = [1, 2, 3, 5, -1]
+const quickActions = [2, 3, 5, -1]
 
 export function PlayerPanel({
   playerNumber,
@@ -26,7 +24,6 @@ export function PlayerPanel({
   disabled,
   onScore,
   onRename,
-  onTurn,
 }: PlayerPanelProps) {
   function handleNameKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Enter') {
@@ -41,25 +38,19 @@ export function PlayerPanel({
           aria-label={`Nombre jugador ${playerNumber}`}
           className="player-name"
           defaultValue={name}
+          disabled={disabled}
           onBlur={(event) => onRename(playerNumber, event.currentTarget.value)}
           onKeyDown={handleNameKeyDown}
         />
-        <button
-          className="turn-chip"
-          type="button"
-          title="Asignar turno"
-          onClick={() => onTurn(playerNumber)}
-        >
-          <CircleDot aria-hidden="true" size={18} />
-          Turno
-        </button>
       </div>
 
       <button
         type="button"
         className="score-tile"
-        onClick={() => onTurn(playerNumber)}
-        aria-label={`Puntaje jugador ${playerNumber}`}
+        disabled={disabled}
+        onClick={() => onScore(playerNumber, 1)}
+        aria-label={`Sumar 1 punto al jugador ${playerNumber}`}
+        title="Sumar 1 punto"
       >
         {score}
       </button>
@@ -79,4 +70,3 @@ export function PlayerPanel({
     </section>
   )
 }
-

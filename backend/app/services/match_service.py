@@ -190,6 +190,10 @@ def end_match() -> dict[str, Any] | None:
     return row_to_dict(row)
 
 
+def new_set() -> dict[str, Any] | None:
+    return end_match()
+
+
 def reset_score() -> dict[str, Any]:
     match = get_or_create_match()
     with db() as connection:

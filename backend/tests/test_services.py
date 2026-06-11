@@ -77,6 +77,34 @@ def test_timer_stays_frozen_while_paused(runtime):
     assert serialized["duration_seconds"] == frozen_duration
 
 
+def test_new_set_ends_current_match_and_waits_for_next_start(runtime):
+    first_match = match_service.start_match()
+    match_service.rename_player(1, "Ana")
+    match_service.change_score(1, 5)
+
+    ended_match = match_service.new_set()
+
+    assert ended_match is not None
+    assert ended_match["id"] == first_match["id"]
+    assert ended_match["status"] == "ended"
+    assert match_service.get_current_match() is None
+
+    with db() as connection:
+        previous = connection.execute(
+            "SELECT status FROM matches WHERE id = ?",
+            (first_match["id"],),
+        ).fetchone()
+    assert previous["status"] == "ended"
+
+    next_match = match_service.start_match()
+    assert next_match["id"] != first_match["id"]
+    assert next_match["player_1_name"] == "Jugador 1"
+    assert next_match["player_2_name"] == "Jugador 2"
+    assert next_match["player_1_score"] == 0
+    assert next_match["player_2_score"] == 0
+    assert next_match["status"] == "active"
+
+
 def test_windows_camera_device_output_is_parsed(runtime):
     output = """
     [dshow @ 000001] "Integrated Webcam" (video)

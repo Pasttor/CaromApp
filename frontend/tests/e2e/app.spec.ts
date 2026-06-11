@@ -47,7 +47,7 @@ test.beforeEach(async ({ page }) => {
 test('scoreboard flow renders controls and replay buttons', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByLabel('Nombre jugador 1')).toHaveValue('Jugador 1')
-  await expect(page.getByLabel('Puntaje jugador 1')).toContainText('8')
+  await expect(page.getByLabel('Sumar 1 punto al jugador 1')).toContainText('8')
   await page.locator('[aria-label="Acciones jugador 1"]').getByRole('button', { name: '+2' }).click()
   await page.getByRole('button', { name: /-30s/i }).click()
   await expect(page.getByText('00:06:00')).toBeVisible()

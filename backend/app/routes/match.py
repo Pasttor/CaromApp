@@ -19,6 +19,12 @@ def start_match() -> dict:
     return get_state()
 
 
+@router.post("/new-set")
+def new_set() -> dict:
+    match_service.new_set()
+    return get_state()
+
+
 @router.post("/pause")
 def pause_match() -> dict:
     match_service.pause_match()
@@ -37,4 +43,3 @@ def end_match() -> dict:
     state = get_state()
     state["summary"] = match_service.serialize_match(summary)
     return state
-

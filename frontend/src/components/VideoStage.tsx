@@ -1,36 +1,30 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import Hls from 'hls.js'
+import {
+  MediaControlBar,
+  MediaController,
+  MediaFullscreenButton,
+  MediaLoadingIndicator,
+  MediaMuteButton,
+  MediaPipButton,
+  MediaPlaybackRateButton,
+  MediaPlayButton,
+  MediaSeekBackwardButton,
+  MediaSeekForwardButton,
+  MediaTimeDisplay,
+  MediaTimeRange,
+  MediaVolumeRange,
+} from 'media-chrome/react'
 import type { VideoState } from '../types'
 import { mediaUrl } from '../lib/api'
-import { formatDuration } from '../lib/format'
-
-interface SeekCommand {
-  id: number
-  seconds: number
-}
 
 interface VideoStageProps {
   video: VideoState
-  isPlaying: boolean
-  playbackRate: number
-  zoom: number
-  seekCommand: SeekCommand | null
-  onPanReset: () => void
 }
 
-export function VideoStage({
-  video,
-  isPlaying,
-  playbackRate,
-  zoom,
-  seekCommand,
-  onPanReset,
-}: VideoStageProps) {
+export function VideoStage({ video }: VideoStageProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const dragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
   const source = mediaUrl(video.url ?? video.live_url)
-  const isReplay = video.mode === 'replay'
 
   useEffect(() => {
     const element = videoRef.current
@@ -41,8 +35,12 @@ export function VideoStage({
       hls = new Hls({ lowLatencyMode: video.mode === 'live' })
       hls.loadSource(source)
       hls.attachMedia(element)
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        void element.play().catch(() => undefined)
+      })
     } else {
       element.src = source
+      void element.play().catch(() => undefined)
     }
 
     return () => {
@@ -50,96 +48,40 @@ export function VideoStage({
     }
   }, [source, video.mode])
 
-  useEffect(() => {
-    const element = videoRef.current
-    if (!element) return
-    element.playbackRate = playbackRate
-  }, [playbackRate])
-
-  useEffect(() => {
-    const element = videoRef.current
-    if (!element) return
-    if (isPlaying) {
-      void element.play().catch(() => undefined)
-    } else {
-      element.pause()
-    }
-  }, [isPlaying, source])
-
-  useEffect(() => {
-    if (!seekCommand || !videoRef.current) return
-    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime + seekCommand.seconds)
-  }, [seekCommand])
-
-  useEffect(() => {
-    if (zoom === 1) setPan({ x: 0, y: 0 })
-  }, [zoom])
-
-  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (zoom <= 1) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    dragStart.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y }
-  }
-
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!dragStart.current) return
-    setPan({
-      x: dragStart.current.panX + event.clientX - dragStart.current.x,
-      y: dragStart.current.panY + event.clientY - dragStart.current.y,
-    })
-  }
-
-  function handlePointerUp() {
-    dragStart.current = null
-  }
-
-  function resetPan() {
-    setPan({ x: 0, y: 0 })
-    onPanReset()
-  }
-
   return (
     <section className="video-stage">
-      <div className="video-topline">
-        <span className={`video-dot ${video.status}`} />
-        <strong>{isReplay ? 'REPLAY' : 'LIVE'}</strong>
-        <span>{formatDuration(video.available_seconds)} disponibles</span>
-      </div>
+      <MediaController className="var-media-controller" autohide="2">
+        <video
+          ref={videoRef}
+          slot="media"
+          muted
+          playsInline
+          autoPlay
+          preload="auto"
+          className="match-video"
+        />
 
-      <div
-        className={`video-frame ${source ? '' : 'no-source'} ${zoom > 1 ? 'is-zoomed' : ''}`}
-        onDoubleClick={resetPan}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {source ? (
-          <video
-            ref={videoRef}
-            muted
-            playsInline
-            controls={false}
-            className="match-video"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            }}
-          />
-        ) : (
-          <div
-            className="video-placeholder"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            }}
-          >
+        {!source && (
+          <div slot="poster" className="video-placeholder">
             <div className="table-lines" />
           </div>
         )}
-        <div className="video-message">
-          <span>{video.message}</span>
-        </div>
-      </div>
+
+        <MediaLoadingIndicator slot="centered-chrome" noAutohide />
+
+        <MediaControlBar className="integrated-control-bar">
+          <MediaPlayButton />
+          <MediaSeekBackwardButton seekOffset={5} />
+          <MediaSeekForwardButton seekOffset={5} />
+          <MediaMuteButton />
+          <MediaVolumeRange />
+          <MediaTimeRange />
+          <MediaTimeDisplay showDuration />
+          <MediaPlaybackRateButton rates={[0.25, 0.5, 1]} />
+          <MediaPipButton />
+          <MediaFullscreenButton />
+        </MediaControlBar>
+      </MediaController>
     </section>
   )
 }
-

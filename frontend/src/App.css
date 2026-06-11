@@ -47,10 +47,10 @@ button:disabled {
 }
 
 .top-status {
-  display: grid;
-  grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) 1fr;
+  min-height: 48px;
+  display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: flex-end;
 }
 
 .meter {
@@ -88,6 +88,8 @@ button:disabled {
 }
 
 .scoreboard-grid {
+  --player-heading-size: 3rem;
+  --player-row-gap: 18px;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -99,15 +101,12 @@ button:disabled {
   min-width: 0;
   display: grid;
   grid-template-rows: auto minmax(300px, 1fr) auto;
-  gap: 18px;
+  gap: var(--player-row-gap);
 }
 
 .player-heading {
   min-width: 0;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
+  display: block;
 }
 
 .player-name {
@@ -117,15 +116,9 @@ button:disabled {
   outline: 0;
   background: transparent;
   color: #f6f6f2;
-  font-size: 3rem;
+  font-size: var(--player-heading-size);
   line-height: 1.05;
   font-weight: 900;
-}
-
-.turn-chip {
-  min-height: 42px;
-  color: #f7f7f4;
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .score-tile {
@@ -161,7 +154,7 @@ button:disabled {
 
 .score-actions {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -176,60 +169,41 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(300px, 1fr) auto auto auto;
+  grid-template-rows: auto auto auto;
+  align-content: start;
   gap: 12px;
+  padding-top: calc(var(--player-heading-size) * 1.05 + var(--player-row-gap) + 2px);
+}
+
+.timer-under-video {
+  width: min(260px, 100%);
+  justify-self: center;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .video-stage {
-  min-height: 0;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  align-self: start;
   border-radius: 12px;
-  background: #070807;
+  background: #000;
   overflow: hidden;
-  display: grid;
-  grid-template-rows: auto 1fr;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.video-topline {
-  min-height: 38px;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #e8ece8;
-  font-size: 0.86rem;
-}
-
-.video-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #9ea4a0;
-}
-
-.video-dot.running,
-.video-dot.ready {
-  background: #28c46a;
-}
-
-.video-dot.error,
-.video-dot.empty {
-  background: #ff5c5c;
-}
-
-.video-frame {
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
+.var-media-controller {
+  width: 100%;
+  height: 100%;
+  display: block;
   background: #000;
-  display: grid;
-  place-items: center;
-  touch-action: none;
-}
-
-.video-frame.is-zoomed {
-  cursor: grab;
+  --media-primary-color: #ffffff;
+  --media-secondary-color: rgba(20, 22, 21, 0.92);
+  --media-control-background: rgba(20, 22, 21, 0.82);
+  --media-control-hover-background: rgba(45, 182, 255, 0.95);
+  --media-range-track-background: rgba(255, 255, 255, 0.34);
+  --media-range-bar-color: #2db6ff;
+  --media-range-thumb-background: #2db6ff;
 }
 
 .match-video,
@@ -237,7 +211,10 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform-origin: center center;
+}
+
+.match-video {
+  background: #000;
 }
 
 .video-placeholder {
@@ -281,72 +258,25 @@ button:disabled {
   bottom: 24%;
 }
 
-.video-message {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 12px;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
+.integrated-control-bar {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-top: 34px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.94));
 }
 
-.video-message span {
-  max-width: 100%;
-  border-radius: 8px;
-  padding: 8px 10px;
-  color: #f7f7f4;
-  background: rgba(0, 0, 0, 0.72);
-  font-size: 0.88rem;
-  overflow-wrap: anywhere;
+.integrated-control-bar media-time-range {
+  min-width: 70px;
+  flex: 1 1 auto;
 }
 
-.replay-controls {
-  display: grid;
-  gap: 8px;
+.integrated-control-bar media-volume-range {
+  width: 70px;
 }
 
-.control-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.control-row.compact {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.control-row button {
-  min-height: 46px;
-  padding: 0 10px;
-  white-space: nowrap;
-}
-
-.control-row .selected,
-.live-button {
-  background: #2db6ff;
-  color: #031019;
-}
-
-.zoom-readout {
-  min-width: 86px;
-}
-
-.event-strip {
-  min-height: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  color: #cbd0cb;
-}
-
-.event-strip span {
-  flex: 0 0 auto;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.08);
+.integrated-control-bar media-playback-rate-button {
+  min-width: 52px;
 }
 
 .error-line {
@@ -477,12 +407,8 @@ button:disabled {
 }
 
 @media (max-width: 1400px) {
-  .player-name {
-    font-size: 2.45rem;
-  }
-
-  .turn-chip {
-    padding: 0 12px;
+  .scoreboard-grid {
+    --player-heading-size: 2.45rem;
   }
 }
 
@@ -496,8 +422,8 @@ button:disabled {
     gap: 16px;
   }
 
-  .player-name {
-    font-size: 2.2rem;
+  .scoreboard-grid {
+    --player-heading-size: 2.2rem;
   }
 
   .score-tile {
@@ -511,12 +437,8 @@ button:disabled {
 }
 
 @media (max-width: 920px) {
-  .top-status {
-    grid-template-columns: 1fr 1fr;
-  }
-
   .top-actions {
-    grid-column: 1 / -1;
+    width: 100%;
     justify-content: stretch;
   }
 
@@ -538,6 +460,7 @@ button:disabled {
 
   .center-stack {
     grid-row: 2;
+    padding-top: 0;
   }
 }
 
@@ -558,22 +481,21 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .top-status {
-    grid-template-columns: 1fr;
-  }
-
   .meter strong {
     font-size: 1.85rem;
   }
 
-  .control-row,
-  .control-row.compact,
-  .score-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .integrated-control-bar media-volume-range,
+  .integrated-control-bar media-pip-button {
+    display: none;
   }
 
-  .player-name {
-    font-size: 1.8rem;
+  .score-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .scoreboard-grid {
+    --player-heading-size: 1.8rem;
   }
 
   .score-tile {
