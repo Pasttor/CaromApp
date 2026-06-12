@@ -1,12 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Play, Settings, TimerReset } from 'lucide-react'
 import './App.css'
 import { PlayerPanel } from './components/PlayerPanel'
+import { SetupFlow } from './components/SetupFlow'
 import { VideoStage } from './components/VideoStage'
 import { SettingsModal } from './components/SettingsModal'
 import { api, stateSocketUrl } from './lib/api'
 import { formatDuration } from './lib/format'
-import type { AppState, SettingsState } from './types'
+import type {
+  AppState,
+  MatchState,
+  PlayerCount,
+  PlayerNumber,
+  SettingsState,
+} from './types'
 
 const defaultSettings: SettingsState = {
   hourly_rate_mxn: '120',
@@ -35,6 +42,8 @@ const fallbackState: AppState = {
 }
 
 function App() {
+  const [screen, setScreen] = useState<'mode' | 'players' | 'scoreboard'>('mode')
+  const [selectedPlayerCount, setSelectedPlayerCount] = useState<PlayerCount>(2)
   const [state, setState] = useState<AppState>(fallbackState)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [connectionError, setConnectionError] = useState('')
@@ -42,24 +51,6 @@ function App() {
 
   const match = state.match
   const isActive = match?.status === 'active'
-
-  const playerOne = useMemo(
-    () => ({
-      name: match?.player_1_name ?? 'Jugador 1',
-      score: match?.player_1_score ?? 0,
-      active: match?.current_turn === 1,
-    }),
-    [match],
-  )
-
-  const playerTwo = useMemo(
-    () => ({
-      name: match?.player_2_name ?? 'Jugador 2',
-      score: match?.player_2_score ?? 0,
-      active: match?.current_turn === 2,
-    }),
-    [match],
-  )
 
   const commitState = useCallback((nextState: AppState, replaceVideo = false) => {
     setDisplayDuration(nextState.match?.duration_seconds ?? 0)
@@ -86,7 +77,6 @@ function App() {
   useEffect(() => {
     let closed = false
     void runAction(api.current)
-    void runAction(api.startVideo, true)
 
     const socket = new WebSocket(stateSocketUrl())
     socket.onmessage = (event) => {
@@ -105,6 +95,11 @@ function App() {
   }, [commitState, runAction])
 
   useEffect(() => {
+    if (screen !== 'scoreboard') return
+    void runAction(api.startVideo, true)
+  }, [runAction, screen])
+
+  useEffect(() => {
     if (!isActive) return
     const interval = window.setInterval(() => {
       setDisplayDuration((current) => current + 1)
@@ -115,7 +110,7 @@ function App() {
 
   async function handlePrimaryMatchAction() {
     if (!match) {
-      await runAction(api.startMatch)
+      await runAction(() => api.startMatch(selectedPlayerCount))
       return
     }
     if (!window.confirm('Cerrar este set y preparar uno nuevo?')) {
@@ -131,6 +126,51 @@ function App() {
       await runAction(api.stopVideo, true)
       await runAction(api.startVideo, true)
     }
+  }
+
+  function playerName(matchState: MatchState | null, playerNumber: PlayerNumber) {
+    if (!matchState) return `Jugador ${playerNumber}`
+    return matchState[`player_${playerNumber}_name`]
+  }
+
+  function playerScore(matchState: MatchState | null, playerNumber: PlayerNumber) {
+    if (!matchState) return 0
+    return matchState[`player_${playerNumber}_score`]
+  }
+
+  const visiblePlayerCount = match?.player_count ?? selectedPlayerCount
+  const players = Array.from(
+    { length: visiblePlayerCount },
+    (_, index) => (index + 1) as PlayerNumber,
+  )
+
+  function renderPlayer(playerNumber: PlayerNumber) {
+    return (
+      <PlayerPanel
+        key={playerNumber}
+        playerNumber={playerNumber}
+        name={playerName(match, playerNumber)}
+        score={playerScore(match, playerNumber)}
+        active={match?.current_turn === playerNumber}
+        tone={playerNumber % 2 === 0 ? 'gold' : 'light'}
+        disabled={!match}
+        onScore={(number, delta) => void runAction(() => api.score(number, delta))}
+        onRename={(number, name) => void runAction(() => api.rename(number, name))}
+      />
+    )
+  }
+
+  if (screen !== 'scoreboard') {
+    return (
+      <SetupFlow
+        step={screen}
+        onEasy={() => setScreen('players')}
+        onSelectPlayers={(playerCount) => {
+          setSelectedPlayerCount(playerCount)
+          setScreen('scoreboard')
+        }}
+      />
+    )
   }
 
   return (
@@ -151,17 +191,12 @@ function App() {
         </div>
       </div>
 
-      <div className="scoreboard-grid">
-        <PlayerPanel
-          playerNumber={1}
-          name={playerOne.name}
-          score={playerOne.score}
-          active={playerOne.active}
-          tone="light"
-          disabled={!match}
-          onScore={(playerNumber, delta) => void runAction(() => api.score(playerNumber, delta))}
-          onRename={(playerNumber, name) => void runAction(() => api.rename(playerNumber, name))}
-        />
+      <div
+        className={`scoreboard-grid players-${visiblePlayerCount} ${
+          visiblePlayerCount > 2 ? 'is-multiplayer' : ''
+        }`}
+      >
+        {renderPlayer(players[0])}
 
         <section className="center-stack">
           <VideoStage video={state.video} />
@@ -174,16 +209,7 @@ function App() {
           )}
         </section>
 
-        <PlayerPanel
-          playerNumber={2}
-          name={playerTwo.name}
-          score={playerTwo.score}
-          active={playerTwo.active}
-          tone="gold"
-          disabled={!match}
-          onScore={(playerNumber, delta) => void runAction(() => api.score(playerNumber, delta))}
-          onRename={(playerNumber, name) => void runAction(() => api.rename(playerNumber, name))}
-        />
+        {players.slice(1).map(renderPlayer)}
       </div>
 
       <SettingsModal

@@ -43,6 +43,12 @@ def get_latest_match() -> dict[str, Any] | None:
     return row_to_dict(row)
 
 
+def validate_player_count(player_count: int) -> int:
+    if player_count not in {2, 3, 4}:
+        raise ValueError("player_count debe ser 2, 3 o 4")
+    return player_count
+
+
 def get_or_create_match() -> dict[str, Any]:
     match = get_current_match()
     if match:
@@ -96,11 +102,12 @@ def get_score_history(limit: int = 12) -> list[dict[str, Any]]:
     return [row_to_dict(row) for row in rows if row is not None]
 
 
-def start_match() -> dict[str, Any]:
+def start_match(player_count: int = 2) -> dict[str, Any]:
     existing = get_current_match()
     if existing:
         return existing
 
+    player_count = validate_player_count(player_count)
     settings = get_settings()
     match_id = str(uuid4())
     now = iso_now()
@@ -109,11 +116,21 @@ def start_match() -> dict[str, Any]:
         connection.execute(
             """
             INSERT INTO matches (
-                id, player_1_name, player_2_name, started_at, hourly_rate, status
+                id, player_count, player_1_name, player_2_name,
+                player_3_name, player_4_name, started_at, hourly_rate, status
             )
-            VALUES (?, ?, ?, ?, ?, 'active')
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
             """,
-            (match_id, "Jugador 1", "Jugador 2", now, hourly_rate),
+            (
+                match_id,
+                player_count,
+                "Jugador 1",
+                "Jugador 2",
+                "Jugador 3",
+                "Jugador 4",
+                now,
+                hourly_rate,
+            ),
         )
     return get_current_match() or {}
 
@@ -198,7 +215,14 @@ def reset_score() -> dict[str, Any]:
     match = get_or_create_match()
     with db() as connection:
         connection.execute(
-            "UPDATE matches SET player_1_score = 0, player_2_score = 0 WHERE id = ?",
+            """
+            UPDATE matches
+            SET player_1_score = 0,
+                player_2_score = 0,
+                player_3_score = 0,
+                player_4_score = 0
+            WHERE id = ?
+            """,
             (match["id"],),
         )
         connection.execute("DELETE FROM score_events WHERE match_id = ?", (match["id"],))
@@ -206,14 +230,15 @@ def reset_score() -> dict[str, Any]:
 
 
 def change_score(player_number: int, delta: int) -> dict[str, Any]:
-    if player_number not in {1, 2}:
-        raise ValueError("player_number debe ser 1 o 2")
+    match = get_or_create_match()
+    player_count = int(match.get("player_count") or 2)
+    if player_number not in range(1, player_count + 1):
+        raise ValueError(f"player_number debe estar entre 1 y {player_count}")
     if delta == 0:
-        return get_or_create_match()
+        return match
 
     settings = get_settings()
     allow_negative = setting_bool(settings, "allow_negative_scores")
-    match = get_or_create_match()
     score_key = f"player_{player_number}_score"
     previous_score = int(match[score_key])
     new_score = previous_score + int(delta)
@@ -224,7 +249,7 @@ def change_score(player_number: int, delta: int) -> dict[str, Any]:
     with db() as connection:
         connection.execute(
             f"UPDATE matches SET {score_key} = ?, current_turn = ? WHERE id = ?",
-            (new_score, 2 if player_number == 1 else 1, match["id"]),
+            (new_score, (player_number % player_count) + 1, match["id"]),
         )
         connection.execute(
             """
@@ -274,10 +299,11 @@ def undo_last_score() -> dict[str, Any] | None:
 
 
 def rename_player(player_number: int, name: str) -> dict[str, Any]:
-    if player_number not in {1, 2}:
-        raise ValueError("player_number debe ser 1 o 2")
-    cleaned = name.strip() or f"Jugador {player_number}"
     match = get_or_create_match()
+    player_count = int(match.get("player_count") or 2)
+    if player_number not in range(1, player_count + 1):
+        raise ValueError(f"player_number debe estar entre 1 y {player_count}")
+    cleaned = name.strip() or f"Jugador {player_number}"
     name_key = f"player_{player_number}_name"
     with db() as connection:
         connection.execute(
@@ -288,9 +314,10 @@ def rename_player(player_number: int, name: str) -> dict[str, Any]:
 
 
 def set_turn(player_number: int) -> dict[str, Any]:
-    if player_number not in {1, 2}:
-        raise ValueError("current_turn debe ser 1 o 2")
     match = get_or_create_match()
+    player_count = int(match.get("player_count") or 2)
+    if player_number not in range(1, player_count + 1):
+        raise ValueError(f"current_turn debe estar entre 1 y {player_count}")
     with db() as connection:
         connection.execute(
             "UPDATE matches SET current_turn = ? WHERE id = ?",

@@ -7,10 +7,15 @@ import type { AppState } from './types'
 const baseState: AppState = {
   match: {
     id: 'match-1',
+    player_count: 2,
     player_1_name: 'Jugador 1',
     player_2_name: 'Jugador 2',
+    player_3_name: 'Jugador 3',
+    player_4_name: 'Jugador 4',
     player_1_score: 8,
     player_2_score: 6,
+    player_3_score: 0,
+    player_4_score: 0,
     current_turn: 1,
     started_at: new Date().toISOString(),
     ended_at: null,
@@ -42,6 +47,13 @@ const baseState: AppState = {
   },
 }
 
+async function enterScoreboard(playerCount: 2 | 3 | 4 = 2) {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'FÁCIL' }))
+  await user.click(screen.getByRole('button', { name: `${playerCount} jugadores` }))
+  return user
+}
+
 class MockWebSocket {
   static instances: MockWebSocket[] = []
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -69,8 +81,25 @@ describe('App', () => {
     )
   })
 
+  it('opens with mode selection and keeps advanced inactive', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: 'FÁCIL' })).toBeInTheDocument()
+    const advanced = screen.getByRole('button', { name: 'AVANZADO' })
+    await user.click(advanced)
+    expect(screen.getByRole('button', { name: 'FÁCIL' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'FÁCIL' }))
+    expect(screen.getByRole('heading', { name: '¿CUÁNTOS JUGADORES VAN A JUGAR?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '2 jugadores' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '3 jugadores' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '4 jugadores' })).toBeInTheDocument()
+  })
+
   it('renders the scoreboard state from the backend', async () => {
     const { container } = render(<App />)
+    await enterScoreboard()
 
     expect(await screen.findByDisplayValue('Jugador 1')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Jugador 2')).toBeInTheDocument()
@@ -85,6 +114,7 @@ describe('App', () => {
 
   it('advances the timer without score actions', async () => {
     render(<App />)
+    await enterScoreboard()
 
     expect(await screen.findByText('00:01:02')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('00:01:03')).toBeInTheDocument(), {
@@ -93,9 +123,9 @@ describe('App', () => {
   })
 
   it('sends score changes to the API', async () => {
-    const user = userEvent.setup()
     const fetchMock = vi.mocked(fetch)
     render(<App />)
+    const user = await enterScoreboard()
 
     await screen.findByDisplayValue('Jugador 1')
     await user.click(screen.getAllByRole('button', { name: '+2' })[0])
@@ -112,9 +142,9 @@ describe('App', () => {
   })
 
   it('adds one point when the large score panel is clicked', async () => {
-    const user = userEvent.setup()
     const fetchMock = vi.mocked(fetch)
     render(<App />)
+    const user = await enterScoreboard()
 
     const scorePanel = await screen.findByLabelText('Sumar 1 punto al jugador 1')
     await user.click(scorePanel)
@@ -131,7 +161,6 @@ describe('App', () => {
   })
 
   it('starts a new set from the single match button', async () => {
-    const user = userEvent.setup()
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockImplementation(async (input) => ({
       ok: true,
@@ -141,6 +170,7 @@ describe('App', () => {
           : baseState,
     }) as Response)
     render(<App />)
+    const user = await enterScoreboard()
 
     await user.click(await screen.findByRole('button', { name: 'Nuevo set' }))
 
@@ -157,10 +187,45 @@ describe('App', () => {
 
   it('shows only the integrated bottom video controls', async () => {
     const { container } = render(<App />)
+    await enterScoreboard()
 
     await screen.findByDisplayValue('Jugador 1')
     expect(screen.queryByRole('button', { name: /-30s/i })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Controles de zoom')).not.toBeInTheDocument()
     expect(container.querySelector('media-control-bar')).toBeInTheDocument()
+  })
+
+  it('renders four selected players and starts that match size', async () => {
+    const fetchMock = vi.mocked(fetch)
+    const noMatchState = { ...baseState, match: null }
+    fetchMock.mockImplementation(async (input) => ({
+      ok: true,
+      json: async () =>
+        String(input).endsWith('/api/match/start')
+          ? {
+              ...baseState,
+              match: {
+                ...baseState.match!,
+                player_count: 4,
+              },
+            }
+          : noMatchState,
+    }) as Response)
+    render(<App />)
+    const user = await enterScoreboard(4)
+
+    expect(await screen.findByDisplayValue('Jugador 3')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Jugador 4')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'INICIAR' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/match/start',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ player_count: 4 }),
+        }),
+      )
+    })
   })
 })

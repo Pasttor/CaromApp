@@ -1,6 +1,5 @@
 import type { KeyboardEvent } from 'react'
-
-type PlayerNumber = 1 | 2
+import type { PlayerNumber } from '../types'
 
 interface PlayerPanelProps {
   playerNumber: PlayerNumber
@@ -32,7 +31,7 @@ export function PlayerPanel({
   }
 
   return (
-    <section className={`player-shell ${tone} ${active ? 'is-active' : ''}`}>
+    <section className={`player-shell player-${playerNumber} ${tone} ${active ? 'is-active' : ''}`}>
       <div className="player-heading">
         <input
           aria-label={`Nombre jugador ${playerNumber}`}

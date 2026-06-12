@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from ..services import match_service
 from ..services.state_service import get_state
 
 router = APIRouter(prefix="/api/match", tags=["match"])
+
+
+class StartMatchPayload(BaseModel):
+    player_count: int = 2
 
 
 @router.get("/current")
@@ -14,8 +19,11 @@ def current_match() -> dict:
 
 
 @router.post("/start")
-def start_match() -> dict:
-    match_service.start_match()
+def start_match(payload: StartMatchPayload) -> dict:
+    try:
+        match_service.start_match(payload.player_count)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return get_state()
 
 

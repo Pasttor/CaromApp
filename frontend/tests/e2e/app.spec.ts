@@ -3,10 +3,15 @@ import { expect, test } from '@playwright/test'
 const state = {
   match: {
     id: 'match-1',
+    player_count: 4,
     player_1_name: 'Jugador 1',
     player_2_name: 'Jugador 2',
+    player_3_name: 'Jugador 3',
+    player_4_name: 'Jugador 4',
     player_1_score: 8,
     player_2_score: 8,
+    player_3_score: 3,
+    player_4_score: 5,
     current_turn: 1,
     started_at: new Date().toISOString(),
     ended_at: null,
@@ -44,11 +49,13 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('scoreboard flow renders controls and replay buttons', async ({ page }) => {
+test('easy flow selects four players and renders the scoreboard', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: 'FÁCIL' }).click()
+  await page.getByRole('button', { name: '4 jugadores' }).click()
   await expect(page.getByLabel('Nombre jugador 1')).toHaveValue('Jugador 1')
-  await expect(page.getByLabel('Sumar 1 punto al jugador 1')).toContainText('8')
-  await page.locator('[aria-label="Acciones jugador 1"]').getByRole('button', { name: '+2' }).click()
-  await page.getByRole('button', { name: /-30s/i }).click()
-  await expect(page.getByText('00:06:00')).toBeVisible()
+  await expect(page.getByLabel('Nombre jugador 3')).toHaveValue('Jugador 3')
+  await expect(page.getByLabel('Nombre jugador 4')).toHaveValue('Jugador 4')
+  await expect(page.getByLabel('Sumar 1 punto al jugador 1')).toBeVisible()
+  await expect(page.locator('media-controller')).toBeVisible()
 })

@@ -1,12 +1,19 @@
 export type MatchStatus = 'active' | 'paused' | 'ended'
+export type PlayerNumber = 1 | 2 | 3 | 4
+export type PlayerCount = 2 | 3 | 4
 
 export interface MatchState {
   id: string
+  player_count: PlayerCount
   player_1_name: string
   player_2_name: string
+  player_3_name: string
+  player_4_name: string
   player_1_score: number
   player_2_score: number
-  current_turn: 1 | 2
+  player_3_score: number
+  player_4_score: number
+  current_turn: PlayerNumber
   started_at: string
   ended_at?: string | null
   duration_seconds: number
@@ -19,7 +26,7 @@ export interface MatchState {
 export interface ScoreEvent {
   id: string
   match_id: string
-  player_number: 1 | 2
+  player_number: PlayerNumber
   delta: number
   previous_score: number
   new_score: number

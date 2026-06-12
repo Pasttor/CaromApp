@@ -1,4 +1,10 @@
-import type { AppState, SettingsState, VideoDevicesResponse } from '../types'
+import type {
+  AppState,
+  PlayerCount,
+  PlayerNumber,
+  SettingsState,
+  VideoDevicesResponse,
+} from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 
@@ -32,24 +38,28 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   current: () => request<AppState>('/api/match/current'),
-  startMatch: () => request<AppState>('/api/match/start', { method: 'POST' }),
+  startMatch: (playerCount: PlayerCount) =>
+    request<AppState>('/api/match/start', {
+      method: 'POST',
+      body: JSON.stringify({ player_count: playerCount }),
+    }),
   newSet: () => request<AppState>('/api/match/new-set', { method: 'POST' }),
   pauseMatch: () => request<AppState>('/api/match/pause', { method: 'POST' }),
   resumeMatch: () => request<AppState>('/api/match/resume', { method: 'POST' }),
   endMatch: () => request<AppState>('/api/match/end', { method: 'POST' }),
-  score: (playerNumber: 1 | 2, delta: number) =>
+  score: (playerNumber: PlayerNumber, delta: number) =>
     request<AppState>(`/api/score/player/${playerNumber}`, {
       method: 'POST',
       body: JSON.stringify({ delta }),
     }),
   undo: () => request<AppState>('/api/score/undo', { method: 'POST' }),
   resetScore: () => request<AppState>('/api/score/reset', { method: 'POST' }),
-  rename: (playerNumber: 1 | 2, name: string) =>
+  rename: (playerNumber: PlayerNumber, name: string) =>
     request<AppState>(`/api/score/player/${playerNumber}/name`, {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
-  setTurn: (currentTurn: 1 | 2) =>
+  setTurn: (currentTurn: PlayerNumber) =>
     request<AppState>('/api/score/turn', {
       method: 'PATCH',
       body: JSON.stringify({ current_turn: currentTurn }),

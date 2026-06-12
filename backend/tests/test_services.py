@@ -37,6 +37,32 @@ def test_score_changes_clamp_and_undo(runtime):
     assert match["player_1_score"] == 3
 
 
+def test_match_supports_four_players(runtime):
+    match = match_service.start_match(4)
+
+    assert match["player_count"] == 4
+    assert match["player_3_name"] == "Jugador 3"
+    assert match["player_4_name"] == "Jugador 4"
+
+    match = match_service.change_score(3, 5)
+    assert match["player_3_score"] == 5
+    assert match["current_turn"] == 4
+
+    match = match_service.change_score(4, 2)
+    assert match["player_4_score"] == 2
+    assert match["current_turn"] == 1
+
+    renamed = match_service.rename_player(4, "Daniel")
+    assert renamed["player_4_name"] == "Daniel"
+
+
+def test_match_rejects_players_outside_selected_count(runtime):
+    match_service.start_match(3)
+
+    with pytest.raises(ValueError, match="entre 1 y 3"):
+        match_service.change_score(4, 1)
+
+
 def test_timer_cost_uses_active_duration(runtime):
     update_settings({"hourly_rate_mxn": 120})
     match = match_service.start_match()
